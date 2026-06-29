@@ -2071,7 +2071,7 @@ Only proceed to Step 1.3 after this passes.
 > "Write `process.py` that does two things:
 >
 > **Part 1 — Clean:**
-> Read `data/nyt_crosswords_raw.csv`. Drop rows where `answer` or `clue` is null or empty. Uppercase all `answer` values. Drop duplicate rows (same `date + puzzle_type + clue_number + direction`). Write to `data/nyt_crosswords_clean.csv`. Print a summary: total rows in, rows dropped, rows out.
+> Read `data/nyt_crosswords_raw.csv`. Drop rows where `answer` or `clue` is null or empty. Uppercase all `answer` values. Drop duplicate rows (same `date + puzzle_type + clue_number + direction + answer`). Write to `data/nyt_crosswords_clean.csv`. Print a summary: total rows in, rows dropped, rows out.
 >
 > **Part 2 — Overall frequency aggregation:**
 > From the cleaned data, compute per-word frequency counts. For each unique `answer`, count:
@@ -2093,8 +2093,7 @@ Only proceed to Step 1.3 after this passes.
 The normalized columns matter because Midi only has ~16 months of data vs. years of Daily and Mini — raw counts would make Midi words look rare even if they repeat constantly.
 
 **Human step:** Sanity check `word_frequencies.csv`:
-- OREO should rank very high
-- ERA, AREA, ALOE, OREO should all be in the top 20
+- ERA, AREA, ALOE, OREO should all rank high
 - Midi normalized rates should be meaningfully comparable to Daily rates despite fewer puzzles
 
 **Commit:** `feat: cleaning and frequency aggregation`
