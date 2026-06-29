@@ -2049,13 +2049,13 @@ Only proceed to Step 1.3 after this passes.
 
 **Prompt:**
 > "Write `scrape_full.py` that runs three scrape loops using the date ranges in PLAN.md:
-> - daily: 2021-11-01 to today
+> - daily: 1993-11-21 to today
 > - mini: 2014-08-21 to today
-> - midi: 2025-02-01 to today
+> - midi: 2026-02-25 to today
 >
 > For each date and puzzle type, fetch the puzzle JSON, call `extract_clue_answer_pairs()`, and append rows to `data/nyt_crosswords_raw.csv`.
 >
-> On startup, load any existing `puzzle_id` values from the CSV so already-fetched puzzles are skipped (enables safe resuming if the script is interrupted).
+> On startup, load existing natural row keys (`date + puzzle_type + clue_number + direction`) from the CSV. For each fetched puzzle, append only rows whose natural key is missing so interrupted puzzle writes can resume without losing partial rows or creating duplicates.
 >
 > Log all errors and skipped dates to `logs/scrape_errors.log`. Sleep 1.0–2.0 seconds randomly between every request."
 
@@ -2073,7 +2073,7 @@ Only proceed to Step 1.3 after this passes.
 > **Part 1 — Clean:**
 > Read `data/nyt_crosswords_raw.csv`. Drop rows where `answer` or `clue` is null or empty. Uppercase all `answer` values. Drop duplicate rows (same `date + puzzle_type + clue_number + direction`). Write to `data/nyt_crosswords_clean.csv`. Print a summary: total rows in, rows dropped, rows out.
 >
-> **Part 2 — Frequency aggregation:**
+> **Part 2 — Overall frequency aggregation:**
 > From the cleaned data, compute per-word frequency counts. For each unique `answer`, count:
 > - `total`: appearances across all puzzle types
 > - `daily_count`: appearances in daily puzzles only
@@ -2082,7 +2082,13 @@ Only proceed to Step 1.3 after this passes.
 > - `avg_per_100_daily`, `avg_per_100_mini`, `avg_per_100_midi`: normalized rate per 100 puzzles of that type (total puzzles of that type = number of distinct dates for that type in the dataset)
 >
 > Write to `data/word_frequencies.csv` with columns:
-> `answer, total, daily_count, mini_count, midi_count, avg_per_100_daily, avg_per_100_mini, avg_per_100_midi`"
+> `answer, total, daily_count, mini_count, midi_count, avg_per_100_daily, avg_per_100_mini, avg_per_100_midi`
+>
+> **Part 3 — Yearly frequency aggregation:**
+> Add a `year` derived from `date`. For each `year + answer`, compute the same count and normalized-rate columns as the overall aggregation, where normalized rates use the number of distinct puzzle dates for that puzzle type within that year.
+>
+> Write to `data/word_frequencies_by_year.csv` with columns:
+> `year, answer, total, daily_count, mini_count, midi_count, avg_per_100_daily, avg_per_100_mini, avg_per_100_midi`"
 
 The normalized columns matter because Midi only has ~16 months of data vs. years of Daily and Mini — raw counts would make Midi words look rare even if they repeat constantly.
 
@@ -2100,16 +2106,17 @@ The normalized columns matter because Midi only has ~16 months of data vs. years
 **Stack: Streamlit** (single Python file, no frontend build step, free deployment on Streamlit Cloud later).
 
 **Prompt:**
-> "Write `dashboard.py` as a Streamlit app that reads `data/word_frequencies.csv`. Build the following UI:
+> "Write `dashboard.py` as a Streamlit app that reads `data/word_frequencies.csv` and `data/word_frequencies_by_year.csv`. Build the following UI:
 >
 > **Sidebar controls:**
 > - Multiselect: puzzle type filter — options: Daily, Mini, Midi — defaults to all three selected
+> - Selectbox: year filter — options: All years plus only years that have data for the currently selected puzzle type filter. Defaults to All years. Selecting a year shows top/bottom words within that year only.
 > - Toggle: Raw count vs. Per 100 puzzles (normalized)
 > - Slider: number of words to show N (10–100, default 50)
 > - Toggle: Most frequent / Least frequent
 >
 > **Main area:**
-> - A horizontal bar chart (using Plotly or Altair — not Matplotlib) of the top or bottom N words by the selected frequency metric, filtered to selected puzzle types and minimum word length. The bar length represents the computed frequency for the selected puzzle type combination.
+> - A horizontal bar chart (using Plotly or Altair — not Matplotlib) of the top or bottom N words by the selected frequency metric, filtered to selected puzzle types, and selected year The bar length represents the computed frequency for the selected puzzle type combination and year selection.
 > - Below the chart: a search box. Type a word (e.g. OREO) and see a small grouped bar chart showing its raw count and normalized rate broken down by Daily / Mini / Midi.
 >
 > When multiple puzzle types are selected, sum their raw counts for the main chart. For normalized view, average their per-100 rates.

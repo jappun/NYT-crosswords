@@ -1,4 +1,66 @@
+import re
 from pprint import pprint
+
+
+def _build_visual_clue_lookup(notes: list[dict]) -> dict[tuple[str, str], str]:
+    """
+    Parse the notes block into a dict keyed by (label, direction) → description.
+    Handles lines like: "At 17-Across, each square in the answer has a thick underscore..."
+    """
+    lookup: dict[tuple[str, str], str] = {}
+    if not notes:
+        return lookup
+    text = notes[0].get("text", "")
+    for match in re.finditer(
+        r"At (\d+)-(Across|Down),\s*(.+?)(?=\s*At \d+-(?:Across|Down)|$)",
+        text,
+        re.DOTALL,
+    ):
+        label, direction, description = match.group(1), match.group(2), match.group(3)
+        lookup[(label, direction)] = description.strip().rstrip(".")
+    return lookup
+
+
+def _get_clue_text(
+    clue: dict,
+    visual_lookup: dict[tuple[str, str], str],
+) -> str | None:
+    """
+    Return the clue string, handling three text formats:
+      - plain: normal clue text
+      - formatted with ➡️/⬅️: letter-swap puzzle clue
+      - formatted &nbsp;: visual/print-only clue resolved via notes lookup
+    Returns None if no usable text can be extracted.
+    """
+    text_list = clue.get("text")
+    if not text_list:
+        return None
+
+    first = text_list[0]
+
+    if "plain" in first:
+        return first["plain"]
+
+    formatted = first.get("formatted", "")
+
+    if "➡️" in formatted or "\u27a1" in formatted:
+        lines = [ln.strip() for ln in formatted.splitlines() if ln.strip()]
+        cleaned = []
+        for ln in lines:
+            ln = ln.replace("➡️", "").replace("⬅️", "").replace("\u27a1\ufe0f", "").replace("\u2b05\ufe0f", "").strip()
+            if ln:
+                cleaned.append(ln)
+        joined = " / ".join(cleaned)
+        return f"{joined} (swap two letters for alternate answer)"
+
+    if not formatted or formatted.strip() in ("&nbsp;", ""):
+        label = clue.get("label", "")
+        direction = clue.get("direction", "")
+        description = visual_lookup.get((label, direction))
+        if description:
+            return f"visual clue: {description}"
+
+    return None
 
 
 def extract_clue_answer_pairs(data: dict, puzzle_type: str) -> list[dict]:
@@ -8,6 +70,7 @@ def extract_clue_answer_pairs(data: dict, puzzle_type: str) -> list[dict]:
     """
     body = data["body"][0]
     cells = body["cells"]
+    visual_lookup = _build_visual_clue_lookup(data.get("notes", []))
     rows = []
 
     for clue in body["clues"]:
@@ -24,6 +87,10 @@ def extract_clue_answer_pairs(data: dict, puzzle_type: str) -> list[dict]:
         if skip_clue:
             continue
 
+        clue_text = _get_clue_text(clue, visual_lookup)
+        if clue_text is None:
+            continue
+
         rows.append(
             {
                 "date": data["publicationDate"],
@@ -32,7 +99,7 @@ def extract_clue_answer_pairs(data: dict, puzzle_type: str) -> list[dict]:
                 "clue_number": clue["label"],
                 "direction": clue["direction"],
                 "answer": "".join(answer_letters),
-                "clue": clue["text"][0]["plain"],
+                "clue": clue_text,
             }
         )
 
