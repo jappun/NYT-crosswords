@@ -1,5 +1,7 @@
 .env
 __pycache__/
 *.csv
+!data/word_frequencies.csv
+!data/word_frequencies_by_year.csv
 venv/
 logs/
