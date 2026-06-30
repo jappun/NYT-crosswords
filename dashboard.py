@@ -98,8 +98,14 @@ def main() -> None:
 
     st.title("New York Times Crossword Answer Frequencies")
     st.info(
-        "Midi data starts Feb 2026. Normalized rates (per 100 puzzles) are "
-        "recommended for cross-type comparisons."
+        """
+        Data coverage:
+        - Daily: 1993-11-21 to 2026-06-28
+        - Mini: 2014-08-21 to 2026-06-28
+        - Midi: 2026-02-25 to 2026-06-28
+
+        Normalized rates (per 100 puzzles) are recommended for cross-type comparisons.
+        """
     )
 
     st.sidebar.header("Controls")
