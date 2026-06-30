@@ -57,6 +57,92 @@ def format_metric_label(normalized: bool) -> str:
     return "Average appearances per 100 puzzles" if normalized else "Raw appearances"
 
 
+def seed_filter_defaults(max_answer_length: int) -> None:
+    defaults = {
+        "flt_types": list(PUZZLE_TYPES.keys()),
+        "flt_year": "All years",
+        "flt_normalized": False,
+        "flt_count": 50,
+        "flt_length": (3, min(21, max_answer_length)),
+    }
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
+
+
+def _push_to_canonical(canonical_key: str, widget_key: str) -> None:
+    st.session_state[canonical_key] = st.session_state[widget_key]
+
+
+def render_filters(
+    container,
+    suffix: str,
+    yearly_frequencies: pd.DataFrame,
+    max_answer_length: int,
+) -> None:
+    """Render the full set of filter controls into the given container.
+
+    Both the desktop sidebar and the mobile in-page expander call this with a
+    distinct ``suffix``. Each widget mirrors a single canonical session-state
+    value (``flt_*``) and writes back through ``on_change`` so the two copies
+    stay in sync and the rest of the app reads one source of truth.
+    """
+    types_key = f"types_{suffix}"
+    st.session_state[types_key] = st.session_state["flt_types"]
+    container.multiselect(
+        "Puzzle types",
+        options=list(PUZZLE_TYPES.keys()),
+        key=types_key,
+        on_change=_push_to_canonical,
+        args=("flt_types", types_key),
+    )
+
+    valid_years = available_years(yearly_frequencies, st.session_state["flt_types"])
+    year_options = ["All years", *[str(year) for year in valid_years]]
+    if st.session_state["flt_year"] not in year_options:
+        st.session_state["flt_year"] = "All years"
+    year_key = f"year_{suffix}"
+    st.session_state[year_key] = st.session_state["flt_year"]
+    container.selectbox(
+        "Year",
+        options=year_options,
+        key=year_key,
+        on_change=_push_to_canonical,
+        args=("flt_year", year_key),
+    )
+
+    normalized_key = f"normalized_{suffix}"
+    st.session_state[normalized_key] = st.session_state["flt_normalized"]
+    container.toggle(
+        "Use per-100 puzzle rates",
+        key=normalized_key,
+        on_change=_push_to_canonical,
+        args=("flt_normalized", normalized_key),
+    )
+
+    count_key = f"count_{suffix}"
+    st.session_state[count_key] = st.session_state["flt_count"]
+    container.slider(
+        "Number of answers to show",
+        min_value=10,
+        max_value=100,
+        step=5,
+        key=count_key,
+        on_change=_push_to_canonical,
+        args=("flt_count", count_key),
+    )
+
+    length_key = f"length_{suffix}"
+    st.session_state[length_key] = st.session_state["flt_length"]
+    container.slider(
+        "Answer length range",
+        min_value=1,
+        max_value=max_answer_length,
+        key=length_key,
+        on_change=_push_to_canonical,
+        args=("flt_length", length_key),
+    )
+
+
 def main() -> None:
     st.set_page_config(
         page_title="New York Times Crossword Answer Frequencies",
@@ -74,10 +160,6 @@ def main() -> None:
         [data-testid="stHeaderActionElements"] {
             display: none;
         }
-        [data-testid="stSidebarCollapseButton"],
-        [data-testid="collapsedControl"] {
-            display: none !important;
-        }
         section[data-testid="stSidebar"] > div:first-child {
             padding-top: 2.75rem;
         }
@@ -86,6 +168,26 @@ def main() -> None:
         }
         .block-container {
             padding-top: 2.25rem;
+        }
+
+        /* Desktop and tablets (incl. iPad portrait): keep the native Filters
+           sidebar permanent and non-collapsible, and hide the in-page filters. */
+        @media (min-width: 768px) {
+            [data-testid="stSidebarCollapseButton"] {
+                display: none !important;
+            }
+            .st-key-mobile_filters {
+                display: none !important;
+            }
+        }
+
+        /* Phones: hide the native sidebar; filters live in-page below the
+           data-coverage note as an expander. */
+        @media (max-width: 767.98px) {
+            section[data-testid="stSidebar"],
+            [data-testid="stExpandSidebarButton"] {
+                display: none !important;
+            }
         }
         </style>
         """,
@@ -108,34 +210,24 @@ def main() -> None:
         """
     )
 
-    st.sidebar.header("Controls")
-    selected_types = st.sidebar.multiselect(
-        "Puzzle types",
-        options=list(PUZZLE_TYPES.keys()),
-        default=list(PUZZLE_TYPES.keys()),
-    )
+    seed_filter_defaults(max_answer_length)
 
-    valid_years = available_years(yearly_frequencies, selected_types)
-    year_options = ["All years", *[str(year) for year in valid_years]]
-    selected_year = st.sidebar.selectbox("Year", options=year_options)
+    # Phones: filters live in-page, directly below the data-coverage note
+    # (hidden on desktop/tablet via CSS).
+    mobile_filters = st.container(key="mobile_filters")
+    with mobile_filters.expander("Filters", expanded=False):
+        render_filters(st, "mobile", yearly_frequencies, max_answer_length)
 
-    normalized = st.sidebar.toggle(
-        "Use per-100 puzzle rates",
-        value=False,
-    )
-    word_count = st.sidebar.slider(
-        "Number of answers to show",
-        min_value=10,
-        max_value=100,
-        value=50,
-        step=5,
-    )
-    min_answer_length, max_selected_answer_length = st.sidebar.slider(
-        "Answer length range",
-        min_value=1,
-        max_value=max_answer_length,
-        value=(3, min(21, max_answer_length)),
-    )
+    # Desktop / tablet: the native, always-visible sidebar
+    # (hidden on phones via CSS).
+    st.sidebar.header("Filters")
+    render_filters(st.sidebar, "desktop", yearly_frequencies, max_answer_length)
+
+    selected_types = st.session_state["flt_types"]
+    selected_year = st.session_state["flt_year"]
+    normalized = st.session_state["flt_normalized"]
+    word_count = st.session_state["flt_count"]
+    min_answer_length, max_selected_answer_length = st.session_state["flt_length"]
 
     if not selected_types:
         st.warning("Select at least one puzzle type to display frequencies.")
