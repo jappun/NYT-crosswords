@@ -57,6 +57,22 @@ def format_metric_label(normalized: bool) -> str:
     return "Average appearances per 100 puzzles" if normalized else "Raw appearances"
 
 
+def ordinal(n: int) -> str:
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def frequency_rank(source: pd.DataFrame, column: str, value: float) -> int:
+    """Competition rank (1 = most frequent) of ``value`` within ``column``.
+
+    Tied counts share the same rank.
+    """
+    return int((source[column] > value).sum()) + 1
+
+
 def seed_filter_defaults(max_answer_length: int) -> None:
     defaults = {
         "flt_types": list(PUZZLE_TYPES.keys()),
@@ -301,6 +317,39 @@ def main() -> None:
             st.warning(f"No results found for {query}.")
         else:
             row = match.iloc[0]
+
+            type_phrases = []
+            for label, puzzle_type in PUZZLE_TYPES.items():
+                count = int(row[f"{puzzle_type}_count"])
+                if count > 0:
+                    rank = frequency_rank(source, f"{puzzle_type}_count", count)
+                    type_phrases.append(
+                        f"the {ordinal(rank)} most common **{label}** answer"
+                    )
+
+            overall_rank = frequency_rank(source, "total", int(row["total"]))
+            scope_suffix = "" if selected_year == "All years" else f" in {selected_year}"
+            summary = (
+                f"**{query}** is the {ordinal(overall_rank)} most common answer "
+                f"overall{scope_suffix}."
+            )
+
+            if type_phrases:
+                if len(type_phrases) == 1:
+                    types_joined = type_phrases[0]
+                else:
+                    types_joined = (
+                        ", ".join(type_phrases[:-1]) + f", and {type_phrases[-1]}"
+                    )
+                lead_in = (
+                    "It is also"
+                    if selected_year == "All years"
+                    else "That year it was also"
+                )
+                summary += f" {lead_in} {types_joined}."
+
+            st.markdown(summary)
+
             search_rows = []
             for label, puzzle_type in PUZZLE_TYPES.items():
                 search_rows.append(
@@ -315,11 +364,12 @@ def main() -> None:
                 )
 
             search_data = pd.DataFrame(search_rows)
+            year_label = "All Years" if selected_year == "All years" else selected_year
             raw_fig = px.bar(
                 search_data,
                 x="Puzzle type",
                 y="Raw count",
-                title=f"{query} Raw Counts",
+                title=f"{query} Raw Counts ({year_label})",
                 text="Raw count",
                 color_discrete_sequence=["#1f77b4"],
             )
@@ -327,7 +377,7 @@ def main() -> None:
                 search_data,
                 x="Puzzle type",
                 y="Per 100 puzzles",
-                title=f"{query} Per 100 Puzzles",
+                title=f"{query} Per 100 Puzzles ({year_label})",
                 text="Per 100 puzzles",
                 color_discrete_sequence=["#1f77b4"],
             )
