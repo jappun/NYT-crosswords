@@ -2111,12 +2111,12 @@ The normalized columns matter because Midi only has ~16 months of data vs. years
 > - Multiselect: puzzle type filter — options: Daily, Mini, Midi — defaults to all three selected
 > - Selectbox: year filter — options: All years plus only years that have data for the currently selected puzzle type filter. Defaults to All years. Selecting a year shows top/bottom words within that year only.
 > - Toggle: Raw count vs. Per 100 puzzles (normalized)
-> - Slider: number of words to show N (10–100, default 50)
-> - Toggle: Most frequent / Least frequent
+> - Slider: number of answers to show N (10–100, default 50)
+> - Slider: answer length range
 >
 > **Main area:**
-> - A horizontal bar chart (using Plotly or Altair — not Matplotlib) of the top or bottom N words by the selected frequency metric, filtered to selected puzzle types, and selected year The bar length represents the computed frequency for the selected puzzle type combination and year selection.
-> - Below the chart: a search box. Type a word (e.g. OREO) and see a small grouped bar chart showing its raw count and normalized rate broken down by Daily / Mini / Midi.
+> - A blue horizontal bar chart (using Plotly or Altair — not Matplotlib) of the top N answers by the selected frequency metric, filtered to selected puzzle types, selected year, and answer length range. The bar length represents the computed frequency for the selected puzzle type combination and year selection. Display normalized rates rounded to two decimal places in the UI.
+> - Below the chart: a search box. Type an answer (e.g. OREO) and see a small grouped bar chart showing its raw count and normalized rate broken down by Daily / Mini / Midi.
 >
 > When multiple puzzle types are selected, sum their raw counts for the main chart. For normalized view, average their per-100 rates.
 >
