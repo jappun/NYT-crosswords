@@ -62,7 +62,7 @@ def seed_filter_defaults(max_answer_length: int) -> None:
         "flt_types": list(PUZZLE_TYPES.keys()),
         "flt_year": "All years",
         "flt_normalized": False,
-        "flt_count": 50,
+        "flt_count": 20,
         "flt_length": (3, min(21, max_answer_length)),
     }
     for key, value in defaults.items():
@@ -282,7 +282,7 @@ def main() -> None:
             height=max(450, word_count * 24),
             yaxis_title="",
             xaxis_title=metric_label,
-            margin=dict(l=140, r=40, t=40, b=80),
+            margin=dict(l=40, r=40, t=40, b=80),
         )
         fig.update_yaxes(automargin=True)
         st.plotly_chart(fig, use_container_width=True)
